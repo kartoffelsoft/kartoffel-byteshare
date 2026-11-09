@@ -161,18 +161,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64fa3c856b712db6612c019f14756e64e4bcea13337a6b33b696333a9eaa2d06"
 
 [[package]]
-name = "byte-share-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "ratatui",
- "ratatui-explorer",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "bytemuck"
 version = "1.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -183,6 +171,26 @@ name = "bytes"
 version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
+
+[[package]]
+name = "byteshare"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
+name = "byteshare-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "byteshare",
+ "clap",
+ "ratatui",
+ "ratatui-explorer",
+ "tokio",
+ "uuid",
+]
 
 [[package]]
 name = "castaway"
