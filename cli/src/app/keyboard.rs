@@ -5,6 +5,7 @@ pub(super) struct KeyboardEvent {
     pub modifiers: KeyModifiers,
 }
 
+#[derive(PartialEq)]
 pub(super) enum KeyCode {
     Char(char),
     Backspace,
@@ -69,5 +70,11 @@ impl Keyboard {
         self.events_rx
             .take()
             .expect("events_rx already taken")
+    }
+}
+
+impl Drop for Keyboard {
+    fn drop(&mut self) {
+        let _ = crossterm::terminal::disable_raw_mode();
     }
 }
