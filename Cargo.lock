@@ -177,6 +177,7 @@ name = "byteshare"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "tokio",
 ]
 
 [[package]]
@@ -186,6 +187,7 @@ dependencies = [
  "anyhow",
  "byteshare",
  "clap",
+ "crossterm",
  "ratatui",
  "ratatui-explorer",
  "tokio",

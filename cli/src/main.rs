@@ -1,4 +1,5 @@
 mod app;
+mod storage;
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -17,13 +18,13 @@ pub enum Command {
 #[derive(Parser)]
 #[command(name = "byte-share-cli", version, about, after_help = HELP_SECTIONS)]
 pub struct Args {
-    #[arg(long, env = "BYTE_SHARE_ALIAS")]
+    #[arg(long, env = "BYTESHARE_ALIAS")]
     pub alias: Option<String>,
 
-    #[arg(long, env = "BYTE_SHARE_PORT")]
+    #[arg(long, env = "BYTESHARE_PORT")]
     pub port: Option<u16>,
     
-    #[arg(long, env = "BYTE_SHARE_DESTINATION")]
+    #[arg(long, env = "BYTESHARE_DESTINATION")]
     pub destination: Option<PathBuf>,
 
     #[command(subcommand)]
