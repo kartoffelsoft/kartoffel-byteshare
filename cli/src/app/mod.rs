@@ -49,9 +49,9 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
 }
 
 async fn run_default() -> anyhow::Result<()> {
-    let mut server = Server::new()
-        .run()
-        .await?;
+    let mut server = Server::new();
+    server.set_port(51234);
+    server.run().await?;
     let mut server_events = server.take_events();
     
     let mut keyboard = Keyboard::new()?;
