@@ -2,6 +2,7 @@ mod keyboard;
 
 use crate::storage;
 use crate::{Args, Command};
+use byteshare::discovery::{self, Discovery};
 use byteshare::http::server::{Server, ServerEvent}; 
 use keyboard::{Keyboard, KeyboardEvent, KeyCode, KeyModifiers};
 use std::ops::ControlFlow;
@@ -54,7 +55,13 @@ async fn run_default() -> anyhow::Result<()> {
     server.run().await?;
     let mut server_events = server.take_events();
     
-    let mut keyboard = Keyboard::new()?;
+    let mut discovery = Discovery::new(discovery::Config {
+        ..discovery::Config::default()
+    });
+    discovery.run().await;
+
+    let mut keyboard = Keyboard::new();
+    keyboard.run()?;
     let mut keyboard_events = keyboard.take_events();
 
     let mut app = App {

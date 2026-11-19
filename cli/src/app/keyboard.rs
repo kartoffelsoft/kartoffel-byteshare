@@ -25,8 +25,16 @@ pub(super) struct Keyboard {
 }
 
 impl Keyboard {
-    pub(super) fn new() -> anyhow::Result<Self> {
+    pub(super) fn new() -> Self {
+        Self {
+            events_rx: None,
+        }
+    }
+
+    pub fn run(&mut self) -> anyhow::Result<()> {
         let (events_tx, events_rx) = mpsc::channel(16);
+        self.events_rx = Some(events_rx);
+
         crossterm::terminal::enable_raw_mode()?;
         
         std::thread::spawn({
@@ -61,9 +69,7 @@ impl Keyboard {
             }
         });
 
-        Ok(Self {
-            events_rx: Some(events_rx),
-        })
+        Ok(())
     }
 
     pub(super) fn take_events(&mut self) -> mpsc::Receiver<KeyboardEvent> {
