@@ -6,7 +6,7 @@ use hyper::body::Incoming;
 use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, Mutex, oneshot};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
@@ -21,7 +21,7 @@ pub enum ServerEvent {
 
 pub struct Server {
     port: u16,
-    task: Option<JoinHandle<()>>,
+    task: Mutex<Option<JoinHandle<()>>>,
     
     events_tx: mpsc::Sender<ServerEvent>,
     events_rx: Option<mpsc::Receiver<ServerEvent>>,
@@ -36,7 +36,7 @@ impl Server {
 
         Self {
             port: 51117,
-            task: None,
+            task: Mutex::new(None),
             events_tx: events_tx,
             events_rx: Some(events_rx),
             stop_tx: None,
@@ -84,7 +84,7 @@ impl Server {
         let cancel = CancellationToken::new();
         let tracker = TaskTracker::new();
 
-        self.task = Some(tokio::spawn({
+        let task = tokio::spawn({
             let cancel = cancel.clone();
             let tracker = tracker.clone();
             async move {
@@ -96,7 +96,9 @@ impl Server {
                     // } => {}
                 }
             }
-        }));
+        });
+
+        *self.task.lock().await = Some(task);
 
         Ok(())
     }
