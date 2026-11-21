@@ -2,7 +2,7 @@ mod keyboard;
 
 use crate::storage;
 use crate::{Args, Command};
-use byteshare::discovery::{self, Discovery};
+use byteshare::discovery::{self, Discovery, DiscoveryHandle};
 use byteshare::http::server::{Server, ServerEvent}; 
 use keyboard::{Keyboard, KeyboardEvent, KeyCode, KeyModifiers};
 use std::ops::ControlFlow;
@@ -15,6 +15,7 @@ pub enum AppEvent {
 
 struct App {
     server: Arc<Server>,
+    discovery: DiscoveryHandle,
 }
 
 impl App {
@@ -58,7 +59,7 @@ async fn run_default() -> anyhow::Result<()> {
     let mut discovery = Discovery::new(discovery::Config {
         ..discovery::Config::default()
     });
-    discovery.run().await;
+    discovery.run().await?;
 
     let mut keyboard = Keyboard::new();
     keyboard.run()?;
@@ -66,6 +67,7 @@ async fn run_default() -> anyhow::Result<()> {
 
     let mut app = App {
         server: Arc::new(server),
+        discovery: discovery.handle(),
     };
 
     loop {
@@ -79,6 +81,8 @@ async fn run_default() -> anyhow::Result<()> {
             break;
         }
     }
+
+    app.discovery.stop();
 
     Ok(())
 }

@@ -21,16 +21,30 @@ struct MulticastState {
     sockets: RwLock<Vec<MulticastSocket>>,
 }
 
+#[derive(Clone)]
 struct MulticastSocket {
     target: SocketAddr,
     socket: Arc<UdpSocket>,
 }
 
+#[derive(Clone)]
+pub(crate) struct MulticastHandle {
+    cancel: CancellationToken
+}
+
+impl MulticastHandle {
+    pub(crate) fn stop(self) {
+        self.cancel.cancel();
+    }
+}
+
 pub(crate) struct Multicast {
     config: Config,
     state: Arc<MulticastState>,
-    task: Mutex<Option<JoinHandle<()>>>,
+
+    cancel: CancellationToken,
     events_rx: Option<mpsc::Receiver<MulticastEvent>>,
+    task: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl Multicast {
@@ -40,8 +54,9 @@ impl Multicast {
             state: Arc::new(MulticastState{
                 sockets: RwLock::new(Vec::new()),
             }),
-            task: Mutex::new(None),
+            cancel: CancellationToken::new(),
             events_rx: None,
+            task: Mutex::new(None),
         }
     }
 
@@ -54,7 +69,7 @@ impl Multicast {
             self.config.group_v6,
             self.config.port,
         )?;
-
+        
         if sockets.is_empty() {
             anyhow::bail!(
                 "no network interface available for multicast on port {}", 
@@ -62,14 +77,29 @@ impl Multicast {
             );
         }
 
-        *self.state.sockets.write().await = sockets;
+        *self.state.sockets.write().await = sockets.clone();
 
-        let cancel = CancellationToken::new();
- 
         let task = tokio::spawn({
-            let cancel = cancel.clone();
+            let cancel = self.cancel.clone();
             async move {
 
+                let mut tasks = tokio::task::JoinSet::new();
+                for socket in sockets {
+                    tasks.spawn(run_socket_receive(
+                        socket,
+                        events_tx.clone(),
+                        cancel.clone(),
+                    ));
+                }
+
+                tokio::select! {
+                    _ = async { while tasks.join_next().await.is_some() {} } => {
+                        cancel.cancel();
+                    }
+                    _ = cancel.cancelled() => {}
+                }
+                
+                tasks.abort_all();
             }
         });
 
@@ -77,11 +107,48 @@ impl Multicast {
         Ok(())
     }
 
-    pub(super) fn take_events(&mut self) -> mpsc::Receiver<MulticastEvent> {
+    pub(crate) fn handle(&mut self) -> MulticastHandle {
+        MulticastHandle { 
+            cancel: self.cancel.clone() 
+        }
+    }
+
+    pub(crate) fn take_events(&mut self) -> mpsc::Receiver<MulticastEvent> {
         self.events_rx.take().expect("events_rx already taken")
     }
 }
 
+async fn run_socket_receive(
+    socket: MulticastSocket,
+    events_tx: mpsc::Sender<MulticastEvent>,
+    cancel: CancellationToken,
+) {
+    let mut buffer = vec![0u8; 65536];
+    let mut error_count = 0;
+
+    loop {
+        let result = tokio::select! {
+            result = socket.socket.recv_from(&mut buffer) => result,
+            _ = cancel.cancelled() => return,
+        };
+
+        let (size, addr) = match result {
+            Ok(result) => {
+                error_count = 0;
+                result
+            }
+            Err(err) => {
+                error_count += 1;
+                log::trace!("cound not receive message on interface: {err:#}");
+                if error_count >= 10 {
+                    log::trace!("too many errors. give up.");
+                    return;
+                }
+                continue;
+            }
+        };
+    }
+}
 
 fn bind_sockets(
     group: Ipv4Addr,

@@ -1,7 +1,8 @@
 mod multicast;
 
-use multicast::{Multicast};
+use multicast::{Multicast, MulticastHandle};
 use std::net::{Ipv4Addr, Ipv6Addr};
+use tokio_util::sync::CancellationToken;
 
 const DEFAULT_MULTICAST_GROUP: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 11);
 const DEFAULT_MULTICAST_GROUP_V6: Ipv6Addr = Ipv6Addr::new(0xff12, 0, 0, 0, 0, 0, 0xfd3a, 0xe420);
@@ -23,39 +24,72 @@ impl Default for Config {
     }
 }
 
+#[derive(Clone)]
+pub struct DiscoveryHandle {
+    cancel: CancellationToken
+}
+
+impl DiscoveryHandle {
+    pub fn stop(self) {
+        self.cancel.cancel();
+    }
+}
+
 pub struct Discovery {
     config: Config,
+
+    cancel: CancellationToken,
+    multicast: Option<MulticastHandle>,
 }
 
 impl Discovery {
     pub fn new(config: Config) -> Self {
         Self {
             config,
+            cancel: CancellationToken::new(),
+            multicast: None,
         }
     }
 
-    pub async fn run(&mut self) {
+    pub async fn run(&mut self) -> anyhow::Result<()> {
         let mut multicast = Multicast::new(multicast::Config {
             group: self.config.group,
             group_v6: self.config.group_v6,
             port: self.config.port,
         });
-        multicast.run().await;
+        multicast.run().await?;
         let mut multicast_events = multicast.take_events();
+        self.multicast = Some(multicast.handle());
 
         tokio::spawn({
+            let cancel = self.cancel.clone();
+            let multicast = self.multicast.clone().unwrap();
             async move {
                 loop {
-                    let event = match multicast_events.recv().await {
-                        Some(event) => event,
-                        None => break,
-                    };
+                    tokio::select! {
+                        event = multicast_events.recv() => {
+                            let Some(event) = event else {
+                                break;
+                            };
 
-                    match event {
-
+                            match event {
+                            }
+                        }
+                        _ = cancel.cancelled() => {
+                            multicast.stop();
+                            break;
+                        }
                     }
                 }
             }
         });
+        Ok(())
     }
+
+    pub fn handle(&mut self) -> DiscoveryHandle {
+        DiscoveryHandle { 
+            cancel: self.cancel.clone() 
+        }
+    }
+
 }
