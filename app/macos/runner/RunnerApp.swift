@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct byteshareApp: App {
+struct RunnerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

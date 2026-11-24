@@ -11,20 +11,20 @@
     ],
   },
   "files": [
-    { "kind": "folder", "path": "byteshare", "target-membership": [ "byteshare" ] },
+    { "kind": "folder", "path": "runner", "target-membership": [ "runner" ] },
     {
       "kind": "group",
       "name": "Products",
       "children": [
-        { "path": "<PRODUCTS>/byteshare.app", "id": "7986BE1730B5A35900343B1E", "type": "wrapper.application", "index": false },
+        { "path": "<PRODUCTS>/runner.app", "id": "7986BE3E30B5B30100343B1E", "type": "wrapper.application", "index": false },
       ],
     },
   ],
   "targets": [
     {
-      "name": "byteshare",
-      "id": "7986BE1630B5A35900343B1E",
-      "product": "Products/byteshare.app",
+      "name": "runner",
+      "id": "7986BE3D30B5B30100343B1E",
+      "product": "Products/runner.app",
       "product-type": "application",
       "build-phases": [
         "compile-sources",
