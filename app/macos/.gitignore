@@ -1,7 +1,6 @@
-# Flutter-related
-**/Flutter/ephemeral/
-**/Pods/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcuserstate
 
-# Xcode-related
-**/dgph
-**/xcuserdata/
+.DS_Store
+
