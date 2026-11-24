@@ -1,6 +1,6 @@
 use crate::utils::net::{find_net_interfaces};
 use socket2::{Domain, Protocol, Socket, Type};
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::sync::{mpsc, Mutex, RwLock};
@@ -14,7 +14,13 @@ pub(crate) struct Config {
 }
 
 pub(crate) enum MulticastEvent {
-
+    Packet {
+        ip: IpAddr,
+        scope_id: Option<u32>,
+        size: usize,
+        payload: Vec<u8>,
+    },
+    Err,
 }
 
 struct MulticastState {
@@ -82,7 +88,6 @@ impl Multicast {
         let task = tokio::spawn({
             let cancel = self.cancel.clone();
             async move {
-
                 let mut tasks = tokio::task::JoinSet::new();
                 for socket in sockets {
                     tasks.spawn(run_socket_receive(
@@ -94,9 +99,7 @@ impl Multicast {
 
                 tokio::select! {
                     _ = async { while tasks.join_next().await.is_some() {} } => {
-                        cancel.cancel();
                     }
-                    _ = cancel.cancelled() => {}
                 }
                 
                 tasks.abort_all();
@@ -141,12 +144,33 @@ async fn run_socket_receive(
                 error_count += 1;
                 log::trace!("cound not receive message on interface: {err:#}");
                 if error_count >= 10 {
-                    log::trace!("too many errors. give up.");
+                    log::trace!("too many errors. give up");
                     return;
                 }
                 continue;
             }
         };
+
+        let event = MulticastEvent::Packet {
+            ip: addr.ip(),
+            scope_id: match &addr {
+                SocketAddr::V6(addr) => {
+                    let scope_ip = addr.scope_id();
+                    if scope_ip == 0 {
+                        return;
+                    }
+                    Some(addr.scope_id())
+                },
+                _ => None,
+            },
+            size,
+            payload: buffer.clone(),
+        };
+
+        if events_tx.send(event).await.is_err() {
+            log::trace!("failed to send mutlicast event");
+            return;
+        }
     }
 }
 

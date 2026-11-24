@@ -3,10 +3,9 @@ mod keyboard;
 use crate::storage;
 use crate::{Args, Command};
 use byteshare::discovery::{self, Discovery, DiscoveryHandle};
-use byteshare::http::server::{Server, ServerEvent}; 
+use byteshare::http::server::{Server, ServerEvent, ServerHandle}; 
 use keyboard::{Keyboard, KeyboardEvent, KeyCode, KeyModifiers};
 use std::ops::ControlFlow;
-use std::sync::Arc;
 
 pub enum AppEvent {
     Keyboard(KeyboardEvent),
@@ -14,7 +13,7 @@ pub enum AppEvent {
 }
 
 struct App {
-    server: Arc<Server>,
+    server: ServerHandle,
     discovery: DiscoveryHandle,
 }
 
@@ -66,7 +65,7 @@ async fn run_default() -> anyhow::Result<()> {
     let mut keyboard_events = keyboard.take_events();
 
     let mut app = App {
-        server: Arc::new(server),
+        server: server.handle(),
         discovery: discovery.handle(),
     };
 
@@ -82,6 +81,7 @@ async fn run_default() -> anyhow::Result<()> {
         }
     }
 
+    app.server.stop();
     app.discovery.stop();
 
     Ok(())

@@ -19,15 +19,24 @@ pub enum ServerEvent {
     Register
 }
 
+pub struct ServerHandle {
+    cancel: CancellationToken,
+}
+
+impl ServerHandle {
+    pub fn stop(self) {
+        self.cancel.cancel();
+    }
+}
+
 pub struct Server {
-    port: u16,
     task: Mutex<Option<JoinHandle<()>>>,
     
+    cancel: CancellationToken,
     events_tx: mpsc::Sender<ServerEvent>,
     events_rx: Option<mpsc::Receiver<ServerEvent>>,
-    stop_tx: Option<oneshot::Sender<()>>,
-
     ipv6_available: bool,
+    port: u16,
 }
 
 impl Server {
@@ -35,12 +44,12 @@ impl Server {
         let (events_tx, events_rx) = mpsc::channel(16);
 
         Self {
-            port: 51117,
             task: Mutex::new(None),
+            cancel: CancellationToken::new(),
             events_tx: events_tx,
             events_rx: Some(events_rx),
-            stop_tx: None,
             ipv6_available: false,
+            port: 51117,
         }
     }
 
@@ -80,20 +89,17 @@ impl Server {
         };
 
         self.ipv6_available = ipv6_listener.is_some();
-        
-        let cancel = CancellationToken::new();
+
         let tracker = TaskTracker::new();
 
         let task = tokio::spawn({
-            let cancel = cancel.clone();
+            let cancel = self.cancel.clone();
             let tracker = tracker.clone();
             async move {
                 tokio::select! {
-                    result = run_server(ipv4_listener, cancel, tracker) => {
+                    result = run_server(ipv4_listener, cancel.clone(), tracker) => {
 
                     }
-                    // _ = async {
-                    // } => {}
                 }
             }
         });
@@ -101,6 +107,12 @@ impl Server {
         *self.task.lock().await = Some(task);
 
         Ok(())
+    }
+
+    pub fn handle(self) -> ServerHandle {
+        ServerHandle {
+            cancel: self.cancel.clone()
+        }
     }
 
     pub fn take_events(&mut self) -> mpsc::Receiver<ServerEvent> {
@@ -116,14 +128,21 @@ async fn run_server(
     tracker: TaskTracker
 ) -> anyhow::Result<()> {
     loop {
-        let (tcp_stream, remote_addr) = match listener.accept().await {
-            Ok(accepted) => {
-                let _ = accepted.0.set_nodelay(true);
-                let _ = socket2::SockRef::from(&accepted.0).set_tcp_keepalive(&TCP_KEEPALIVE);
-                accepted
+        let conn = tokio::select! {
+            conn = listener.accept() => {
+                match conn {
+                    Ok((stream, addr)) => {
+                        let _ = stream.set_nodelay(true);
+                        let _ = socket2::SockRef::from(&stream).set_tcp_keepalive(&TCP_KEEPALIVE);
+                        (stream, addr)
+                    }
+                    Err(err) => {
+                        continue;
+                    }
+                }
             }
-            Err(err) => {
-                continue;
+            _ = cancel.cancelled() => {
+                break;
             }
         };
 
@@ -131,11 +150,13 @@ async fn run_server(
 
         tracker.spawn(async move {
             tokio::select! {
-                _ = serve_connection(tcp_stream, remote_addr) => {}
+                _ = serve_connection(conn.0, conn.1) => {}
                 _ = cancel.cancelled() => {}
             }
         });
     }
+
+    Ok(())
 }
 
 async fn serve_connection(
@@ -162,6 +183,13 @@ async fn serve_request(req: Request<Incoming>) -> Result<Response<BoxBody<Bytes,
     let result: Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> = async {
         match (req.method(), req.uri().path()) {
             (&Method::GET, "/ping") => {
+                let body = Full::new(Bytes::from("pong"))
+                    .map_err(|never| match never {})
+                    .boxed();
+
+                Ok(Response::new(body))
+            }
+            (&Method::POST, "/api/register") => {
                 let body = Full::new(Bytes::from("pong"))
                     .map_err(|never| match never {})
                     .boxed();

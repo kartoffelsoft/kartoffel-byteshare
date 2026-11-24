@@ -1,6 +1,7 @@
 mod multicast;
 
-use multicast::{Multicast, MulticastHandle};
+use multicast::{Multicast, MulticastEvent, MulticastHandle};
+use serde::{Deserialize, Serialize};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use tokio_util::sync::CancellationToken;
 
@@ -22,6 +23,14 @@ impl Default for Config {
             port: DEFAULT_PORT,
         }
     }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoveryMessage {
+    pub alias: String,
+    pub version: String,
+    pub port: u16,
 }
 
 #[derive(Clone)]
@@ -73,6 +82,23 @@ impl Discovery {
                             };
 
                             match event {
+                                MulticastEvent::Packet {
+                                    ip, 
+                                    scope_id, 
+                                    size,
+                                    payload,
+                                } => {
+                                    let message = match serde_json::from_slice::<DiscoveryMessage>(&payload[..size]) {
+                                        Ok(message) => message,
+                                        Err(err) => {
+                                            log::trace!("failed to parse multicast packet: {err:#}");
+                                            continue;
+                                        }
+                                    };
+                                }
+                                MulticastEvent::Err => {
+
+                                }
                             }
                         }
                         _ = cancel.cancelled() => {
