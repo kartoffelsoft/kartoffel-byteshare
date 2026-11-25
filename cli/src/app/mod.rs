@@ -2,12 +2,13 @@ mod keyboard;
 
 use crate::storage;
 use crate::{Args, Command};
-use byteshare::discovery::{self, Discovery, DiscoveryHandle};
+use byteshare::discovery::{self, Discovery, DiscoveryEvent, DiscoveryHandle};
 use byteshare::http::server::{Server, ServerEvent, ServerHandle}; 
 use keyboard::{Keyboard, KeyboardEvent, KeyCode, KeyModifiers};
 use std::ops::ControlFlow;
 
 pub enum AppEvent {
+    Discovery(DiscoveryEvent),
     Keyboard(KeyboardEvent),
     Server(ServerEvent),
 }
@@ -59,7 +60,8 @@ async fn run_default() -> anyhow::Result<()> {
         ..discovery::Config::default()
     });
     discovery.run().await?;
-
+    let mut discovery_events = discovery.take_events();
+    
     let mut keyboard = Keyboard::new();
     keyboard.run()?;
     let mut keyboard_events = keyboard.take_events();
@@ -69,8 +71,16 @@ async fn run_default() -> anyhow::Result<()> {
         discovery: discovery.handle(),
     };
 
+    tokio::spawn({
+        let discovery = app.discovery.clone();
+        async move {
+            discovery.announce().await;
+        }
+    });
+    
     loop {
         let event = tokio::select! {
+            Some(event) = discovery_events.recv() => AppEvent::Discovery(event),
             Some(event) = server_events.recv() => AppEvent::Server(event),
             Some(event) = keyboard_events.recv() => AppEvent::Keyboard(event),
             else => break,

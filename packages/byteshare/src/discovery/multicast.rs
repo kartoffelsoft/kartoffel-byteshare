@@ -29,16 +29,26 @@ struct MulticastState {
 
 #[derive(Clone)]
 struct MulticastSocket {
-    target: SocketAddr,
+    addr: SocketAddr,
     socket: Arc<UdpSocket>,
 }
 
 #[derive(Clone)]
 pub(crate) struct MulticastHandle {
-    cancel: CancellationToken
+    state: Arc<MulticastState>,
+    cancel: CancellationToken,
 }
 
 impl MulticastHandle {
+    pub(crate) async fn send(&self, payload: &Vec<u8>) {
+        let sockets = self.state.sockets.read().await.clone();
+        for MulticastSocket { addr, socket} in sockets {
+            if let Err(err) = socket.send_to(&payload, addr).await {
+                log::trace!("failed to send multicast to {addr}: {err:#}");
+            }
+        }
+    }
+
     pub(crate) fn stop(self) {
         self.cancel.cancel();
     }
@@ -111,8 +121,9 @@ impl Multicast {
     }
 
     pub(crate) fn handle(&mut self) -> MulticastHandle {
-        MulticastHandle { 
-            cancel: self.cancel.clone() 
+        MulticastHandle {
+            state: self.state.clone(),
+            cancel: self.cancel.clone(),
         }
     }
 
@@ -191,7 +202,7 @@ fn bind_sockets(
                     intf.address,
                 );
                 result.push(MulticastSocket {
-                    target: SocketAddr::from(SocketAddrV4::new(group, port)),
+                    addr: SocketAddr::from(SocketAddrV4::new(group, port)),
                     socket: Arc::new(socket),
                 });
             }
@@ -218,7 +229,7 @@ fn bind_sockets(
                     intf.index,
                 );
                 result.push(MulticastSocket {
-                    target: SocketAddr::from(SocketAddrV6::new(group_v6, port, 0, intf.index)),
+                    addr: SocketAddr::from(SocketAddrV6::new(group_v6, port, 0, intf.index)),
                     socket: Arc::new(socket),
                 });
             }
