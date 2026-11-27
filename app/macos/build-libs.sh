@@ -29,6 +29,8 @@ $HOME/.cargo/bin/cargo rustc \
     --target ${TARGET} \
     --target-dir target
 
+cp target/${TARGET}/${BUILDVARIANT}/libbyteshare_bridge.a target/generated/
+
 $HOME/.cargo/bin/cargo run \
     -p uniffi-bindgen \
     -- \

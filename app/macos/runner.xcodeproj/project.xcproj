@@ -11,8 +11,17 @@
     ],
   },
   "files": [
+    { "path": "Header.h", "target-membership": [ "runner/headers" ] },
+    { "path": "target/generated/byteshare_bridgeFFI.h", "target-membership": [ { "build-phase": "runner/headers", "header-role": "public" } ] },
+    { "path": "target/generated/byteshare_bridge.swift", "target-membership": [ "runner/compile-sources" ] },
     { "kind": "folder", "path": "runner", "target-membership": [ "runner" ] },
     {
+      "kind": "group",
+      "name": "Frameworks",
+      "children": [
+        { "path": "target/generated/libbyteshare_bridge.a", "target-membership": [ "runner/frameworks" ] },
+      ],
+    }, {
       "kind": "group",
       "name": "Products",
       "children": [
@@ -29,6 +38,7 @@
       "build-phases": [
         "compile-sources",
         "frameworks",
+        "headers",
         "resources",
       ],
       "build-settings": {
@@ -53,6 +63,10 @@
         "IPHONEOS_DEPLOYMENT_TARGET": "27.2",
         "LD_RUNPATH_SEARCH_PATHS": "@executable_path/Frameworks",
         "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "@executable_path/../Frameworks",
+        "LIBRARY_SEARCH_PATHS": [
+          "$(inherited)",
+          "$(PROJECT_DIR)/target/generated",
+        ],
         "MACOSX_DEPLOYMENT_TARGET": "27.2",
         "MARKETING_VERSION": "1.0",
         "PRODUCT_BUNDLE_IDENTIFIER": "kartoffelsoft.byteshare",
@@ -64,6 +78,7 @@
         "SWIFT_APPROACHABLE_CONCURRENCY": "YES",
         "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",
         "SWIFT_EMIT_LOC_STRINGS": "YES",
+        "SWIFT_OBJC_BRIDGING_HEADER": "Header.h",
         "SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY": "YES",
         "SWIFT_VERSION": "5.0",
         "TARGETED_DEVICE_FAMILY": "1,2,7",
