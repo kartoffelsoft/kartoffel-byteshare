@@ -270,6 +270,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "byteshare-bridge"
+version = "0.1.0"
+dependencies = [
+ "byteshare",
+ "uniffi",
+]
+
+[[package]]
 name = "byteshare-cli"
 version = "0.1.0"
 dependencies = [
@@ -281,14 +289,6 @@ dependencies = [
  "ratatui-explorer",
  "tokio",
  "uuid",
-]
-
-[[package]]
-name = "byteshare-ffi"
-version = "0.1.0"
-dependencies = [
- "byteshare",
- "uniffi",
 ]
 
 [[package]]

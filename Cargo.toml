@@ -5,6 +5,6 @@ resolver = "3"
 members = [
     "cli", 
     "packages/byteshare",
-    "packages/byteshare-ffi",
+    "packages/byteshare-bridge",
     "packages/uniffi-bindgen",
 ]
