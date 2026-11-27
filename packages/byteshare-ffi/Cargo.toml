@@ -1,0 +1,11 @@
+[package]
+name = "byteshare-ffi"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+byteshare = { path = "../byteshare", features = ["full"] }
+uniffi = "0.33.0"
